@@ -73,7 +73,6 @@ QList<QString> Firmware::m_languages = {
   "fi",
   "fr",
   "he",
-  "hu",
   "it",
   "jp",
   "ko",
@@ -144,6 +143,7 @@ Board * Firmware::getBoard(bool forceLoad) const
 
 int Firmware::getCapability(Capability value) const
 {
+  //  TODO move to ctor and update on fwOptions change
   const QStringList opts = g.currentProfile().fwOptions().split("-");
 
   switch (value) {
@@ -166,21 +166,15 @@ int Firmware::getCapability(Capability value) const
       return m_defn.outputs.name;
 
     case Capability::DangerousFunctions:
-      return opts.contains("danger") ? true : false;
-
-    case Capability::EepromSize:
-      return m_defn.eepromSize;
+      return opts.contains("danger");
 
     case Capability::ExtendedTrimsRange:
       return 512;
 
-    case Capability::FlashSize:
-      return m_defn.flashSize;
-
-    case Capability::FlightModes:
+    case Capability::FlightModes:   // TODO refactor to OperatingModes
       return m_defn.flightModes.cnt;
 
-    case Capability::FlightModesName:
+    case Capability::FlightModesName:   // TODO refactor to OperatingModes
       return m_defn.flightModes.name;
 
     case Capability::GlobalFunctions:
@@ -210,10 +204,10 @@ int Firmware::getCapability(Capability value) const
               getCapability(Capability::Aux2SerialAvailable));
 
     case Capability::HasMixerNames:
-      return m_defn.mixes.name;
+      return m_defn.mixes.sizes.name;
 
-    case Capability::HasModelImage:
-      return m_defn.modelImage.image;
+    case Capability::HasModelImage:   // TODO refactor out
+      return m_defn.modelImage.name;
 
     case Capability::HasModelLabels:
       return m_defn.labels;
@@ -230,10 +224,10 @@ int Firmware::getCapability(Capability value) const
     case Capability::HasPowerOnDelay:
       return m_defn.powerOnDelay;
 
-    case Capability::HasVario:
+    case Capability::HasVario:   // TODO refactor out
       return getCapability(Capability::Air);
 
-    case Capability::HasVarioSink:
+    case Capability::HasVarioSink:   // TODO refactor out
       return getCapability(Capability::Air);
 
     case Capability::Heli:
@@ -250,20 +244,20 @@ int Firmware::getCapability(Capability value) const
       return m_defn.logicalSwitches.cnt;
 
     case Capability::LuaInputsPerScript:
-      return m_defn.luaScripts.maxInputs;
+      return m_defn.mixes.scripts.inputs;
 
     case Capability::LuaOutputsPerScript:
-      return m_defn.luaScripts.maxOutputs;
+      return m_defn.mixes.scripts.outputs;
 
     case Capability::LuaScripts:
-      return opts.contains("lua") ? m_defn.luaScripts.sizes.cnt : 0;
+      return opts.contains("lua") ? m_defn.mixes.scripts.sizes.cnt : 0;
 
     // TODO remove as mavlink option not used but ui feature
     case Capability::MavlinkTelemetry:
       return opts.contains("mavlink");
 
     case Capability::Mixes:
-      return m_defn.mixes.cnt;
+      return m_defn.mixes.sizes.cnt;
 
     case Capability::ModelImageKeepExtn:
       return m_defn.modelImage.keepExtn;
@@ -314,16 +308,16 @@ int Firmware::getCapability(Capability value) const
       return m_defn.specialFuncs.cnt;
 
     case Capability::TelemetryCustomScreens:
-      return m_defn.teleCstmScrns.sizes.cnt;
+      return m_defn.teleCstmScrns.screens.cnt;
 
     case Capability::TelemetryCustomScreensBars:
-      return m_defn.teleCstmScrns.maxBars;
+      return m_defn.teleCstmScrns.bars;
 
     case Capability::TelemetryCustomScreensFieldsPerLine:
-      return m_defn.teleCstmScrns.maxPerLine;
+      return m_defn.teleCstmScrns.fieldsPerLine;
 
     case Capability::TelemetryCustomScreensLines:
-      return m_defn.teleCstmScrns.maxLines;
+      return m_defn.teleCstmScrns.lines;
 
     case Capability::Timers:
       return m_defn.timers.cnt;
@@ -340,8 +334,7 @@ int Firmware::getCapability(Capability value) const
     case Capability::TrimsRange:
       return 128;
 
-    // TODO use Inputs
-    case VirtualInputs:
+    case Capability::VirtualInputs:   // TODO refactor to use Inputs
       return CPN_MAX_INPUTS;
 
     case Capability::VoicesMaxLength:
@@ -506,8 +499,8 @@ bool Firmware::loadDefinition(const QString & path)
     if (skipKeys.contains(it.key()))
       continue;
 
-    else if (it.key() == "gitHubAsset")
-      m_defn.gitHubAsset = Json::valueStdString(it);
+    else if (it.key() == "downloadId")
+      m_defn.downloadId = Json::valueStdString(it);
 
     else if (it.key() == "simulator")
       m_defn.simulator = Json::valueStdString(it);
@@ -527,14 +520,8 @@ bool Firmware::loadDefinition(const QString & path)
     else if (it.key() == "customScreens")
       loadCustomScreens(it);
 
-    else if (it.key() == "eepromSize")
-      m_defn.eepromSize = Json::valueInt(it, m_defn.eepromSize);
-
     else if (it.key() == "expos")
       Json::loadSizes(it, m_defn.expos, CPN_MAX_EXPOS, EXPODATA_NAME_LEN);
-
-    else if (it.key() == "flashSize")
-      m_defn.flashSize = Json::valueInt(it, m_defn.flashSize);
 
     else if (it.key() == "flightModes")
       Json::loadSizes(it, m_defn.flightModes, CPN_MAX_FLIGHT_MODES, FLIGHTMODE_NAME_LEN);
@@ -561,9 +548,6 @@ bool Firmware::loadDefinition(const QString & path)
     else if (it.key() == "logicalSw")
       Json::loadSizes(it, m_defn.logicalSwitches, CPN_MAX_LOGICAL_SWITCHES, MIXDATA_NAME_LEN);
 
-    else if (it.key() == "luaScripts")
-      loadLuaScripts(it);
-
     // TODO is this still used - check what is generated by firmware
     else if (it.key() == "modelsList")
       m_defn.modelsList = Json::valueBool(it, m_defn.modelsList);
@@ -578,7 +562,7 @@ bool Firmware::loadDefinition(const QString & path)
       m_defn.modelSlots = Json::valueInt(it);
 
     else if (it.key() == "mixes")
-      Json::loadSizes(it, m_defn.mixes, CPN_MAX_MIXERS, MIXDATA_NAME_LEN);
+      loadMixes(it);
 
     else if (it.key() == "outputs")
       Json::loadSizes(it, m_defn.outputs, CPN_MAX_CHNOUT, LIMITDATA_NAME_LEN);
@@ -709,7 +693,7 @@ void Firmware::loadCustomScreens(QJsonObject::const_iterator & oit)
       continue;
 
     else if (it.key() == "cnt")
-      cs.sizes.cnt = Json::valueInt(it, cs.sizes.cnt, CPN_MAX_SCRIPTS);
+      cs.screens.cnt = Json::valueInt(it, cs.screens.cnt, MAX_CUSTOM_SCREENS);
 
     else if (it.key() == "layoutOptions")
       cs.layoutOptions = Json::valueInt(it, cs.layoutOptions, MAX_LAYOUT_OPTIONS);
@@ -734,31 +718,49 @@ void Firmware::loadCustomScreens(QJsonObject::const_iterator & oit)
   }
 }
 
-void Firmware::loadLuaScripts(QJsonObject::const_iterator & oit)
+void Firmware::loadMixes(QJsonObject::const_iterator & oit)
 {
-  JSON_OBJ_INIT_R(oit, o);
+  JSON_OBJ_INIT_R(oit, objmixes);
 
-  LuaScriptsDefn & lua = m_defn.luaScripts;
+  MixesDefn & mixes = m_defn.mixes;
 
-  for (QJsonObject::const_iterator it = o.constBegin(); it != o.constEnd(); ++it) {
-    //JSON_KEY_VAL(it);
-    if (it.key() == "comments")
+  for (QJsonObject::const_iterator itmixes = objmixes.constBegin(); itmixes != objmixes.constEnd(); ++itmixes) {
+    //JSON_KEY_VAL(itmixes);
+    if (itmixes.key() == "comments")
       continue;
 
-    else if (it.key() == "cnt")
-      lua.sizes.cnt = Json::valueInt(it, lua.sizes.cnt, CPN_MAX_SCRIPTS);
+    else if (itmixes.key() == "cnt")
+      mixes.sizes.cnt = Json::valueInt(itmixes, mixes.sizes.cnt, CPN_MAX_MIXERS);
 
-    else if (it.key() == "name")
-      lua.sizes.name = Json::valueInt(it, lua.sizes.name, CPN_LEN_SCRIPT_NAME);
+    else if (itmixes.key() == "name")
+      mixes.sizes.name = Json::valueInt(itmixes, mixes.sizes.name, MIXDATA_NAME_LEN);
 
-    else if (it.key() == "inputs")
-      lua.maxInputs = Json::valueInt(it, lua.maxInputs, CPN_MAX_SCRIPT_INPUTS);
+    else if (itmixes.key() == "scripts") {
+      JSON_OBJ_INIT_C(itmixes, objscripts);
 
-    else if (it.key() == "outputs")
-      lua.maxOutputs = Json::valueInt(it, lua.maxOutputs, CPN_MAX_SCRIPT_OUTPUTS);
+      MixesScriptsDefn & scripts = mixes.scripts;
+
+      for (QJsonObject::const_iterator itscripts = objscripts.constBegin(); itscripts != objscripts.constEnd(); ++itscripts) {
+        //JSON_KEY_VAL(itscripts);
+        if (itscripts.key() == "cnt")
+          scripts.sizes.cnt = Json::valueInt(itscripts, scripts.sizes.cnt, CPN_MAX_SCRIPTS);
+
+        else if (itscripts.key() == "name")
+          scripts.sizes.name = Json::valueInt(itscripts, scripts.sizes.name, CPN_LEN_SCRIPT_NAME);
+
+        else if (itscripts.key() == "inputs")
+          scripts.inputs = Json::valueInt(itscripts, scripts.inputs, CPN_MAX_SCRIPT_INPUTS);
+
+        else if (itscripts.key() == "outputs")
+          scripts.outputs = Json::valueInt(itscripts, scripts.outputs, CPN_MAX_SCRIPT_OUTPUTS);
+
+        else
+          JSON_NO_RULE(itscripts);
+      }
+    }
 
     else
-      JSON_NO_RULE(it);
+      JSON_NO_RULE(itmixes);
   }
 }
 
@@ -775,9 +777,6 @@ void Firmware::loadModelImage(QJsonObject::const_iterator & oit)
 
     else if (it.key() == "filters")
       mi.filters = Json::valueStdString(it, mi.filters);
-
-    else if (it.key() == "image")
-      mi.image = Json::valueBool(it, mi.image);
 
     else if (it.key() == "keepExtn")
       mi.keepExtn = Json::valueBool(it, mi.keepExtn);
@@ -803,19 +802,19 @@ void Firmware::loadTeleCstmScrns(QJsonObject::const_iterator & oit)
       continue;
 
     else if (it.key() == "cnt")
-      tele.sizes.cnt = Json::valueInt(it, tele.sizes.cnt, CPN_TELE_CUST_SCRNS);
+      tele.screens.cnt = Json::valueInt(it, tele.screens.cnt, CPN_TELE_CUST_SCRNS);
 
     else if (it.key() == "bars")
-      tele.maxBars = Json::valueInt(it, tele.maxBars, CPN_TELE_CUST_SCRNS_BARS);
+      tele.bars = Json::valueInt(it, tele.bars, CPN_TELE_CUST_SCRNS_BARS);
 
-    else if (it.key() == "perLine")
-      tele.maxPerLine = Json::valueInt(it, tele.maxPerLine, CPN_TELE_CUST_SCRNS_PERLINE);
+    else if (it.key() == "fieldsPerLine")
+      tele.fieldsPerLine = Json::valueInt(it, tele.fieldsPerLine, CPN_TELE_CUST_SCRNS_PERLINE);
 
     else if (it.key() == "lines")
-      tele.maxLines = Json::valueInt(it, tele.maxLines, CPN_TELE_CUST_SCRNS_LINES);
+      tele.lines = Json::valueInt(it, tele.lines, CPN_TELE_CUST_SCRNS_LINES);
 
     else
-      JSON_NO_RULE(oit);
+      JSON_NO_RULE(it);
   }
 }
 
@@ -826,8 +825,8 @@ bool Firmware::postLoad()
   if (m_defn.boardId.empty())
     m_defn.boardId = m_defn.id;
 
-  if (m_defn.gitHubAsset.empty())
-    m_defn.gitHubAsset = m_defn.id;
+  if (m_defn.downloadId.empty())
+    m_defn.downloadId = m_defn.id;
 
   if (m_defn.simulator.empty())
     m_defn.simulator = m_defn.id;
@@ -858,4 +857,100 @@ bool Firmware::setCurrent(Firmware * firmware)
                 << (firmware ? firmware->getId() : "unknown");
 
   return result;
+}
+
+// TODO REMOVE BEFORE MERGING
+void Firmware::buildJson()
+{
+  QFile regfws("/utils/edgetx/vscode/buildregfws.txt");
+  if (!regfws.open(QIODevice::ReadOnly | QIODevice::Text))
+    return;
+
+  QTextStream regfwsin(&regfws);
+  const QStringList regfwheader = regfwsin.readLine().split(";");
+  QStringList regfwrec;
+
+  QFile regcaps("/utils/edgetx/vscode/buildregfwcaps.txt");
+  if (!regcaps.open(QIODevice::ReadOnly | QIODevice::Text))
+    return;
+
+  QTextStream regcapsin(&regcaps);
+  const QStringList regcapsheader = regcapsin.readLine().split(";");
+  //  read all reg caps into array to save re-reading every board
+  QList<QStringList> regcapsarray;
+  while (!regcapsin.atEnd()) {
+    regcapsarray.append(regcapsin.readLine().split(";"));
+  }
+  regcaps.close();
+
+  QFile caps("/utils/edgetx/vscode/buildfwcaps.txt");
+  if (!caps.open(QIODevice::ReadOnly | QIODevice::Text))
+    return;
+
+  QTextStream capsin(&caps);
+  const QStringList capsheader = capsin.readLine().split(";");
+  QStringList capsrec;
+
+  while (!regfwsin.atEnd()) {
+    regfwrec = regfwsin.readLine().split(";");
+    if (regfwrec.at(regfwheader.indexOf("hwdef")).isEmpty())
+      continue;
+
+    QJsonObject obj;
+    obj["name"] = regfwrec[regfwheader.indexOf("shortname")];
+    QJsonArray basedOn;
+    basedOn.append(regfwrec[regfwheader.indexOf("lcd")]);
+    if (regfwrec.at(regfwheader.indexOf("cpu")) == "h7")
+      basedOn.append(regfwrec[regfwheader.indexOf("cpu")]);
+    obj["basedOn"] = basedOn;
+
+    do {
+      capsrec = capsin.readLine().split(";");
+    } while (!capsin.atEnd() && capsrec.at(capsheader.indexOf("id")) != regfwrec.at(regfwheader.indexOf("id")));
+
+    do {
+      for (const auto& regcap : regcapsarray ) {
+        if (regcap.at(regcapsheader.indexOf("enum")) == capsrec.at(capsheader.indexOf("capability"))) {
+          if (!regcap.at(regcapsheader.indexOf("jsonkey")).isEmpty() &&
+              capsrec.at(capsheader.indexOf("value")) != regcap.at(regcapsheader.indexOf("default")) &&
+              (regcap.at(regcapsheader.indexOf("lcd")).isEmpty() ||
+               regcap.at(regcapsheader.indexOf("lcd")) == regfwrec.at(regfwheader.indexOf("lcd")))) {
+            QStringList keys = regcap[regcapsheader.indexOf("jsonkey")].split("|");
+            QJsonValue val;
+            if (regcap.at(regcapsheader.indexOf("type")) == "bool")
+              val = capsrec.at(capsheader.indexOf("value")) == "0" ? false : true;
+            else if (regcap.at(regcapsheader.indexOf("type")) == "int")
+              val = capsrec[capsheader.indexOf("value")].toInt();
+            else
+              val = capsrec[capsheader.indexOf("value")];
+
+            if (keys.count() == 1)
+              obj[keys.at(0)] = val;
+            else {
+              QJsonObject subobj;
+              subobj[keys.at(1)] = val;
+              obj[keys.at(0)] = subobj;
+            }
+          }
+        }
+      }
+      if (capsin.atEnd())
+        break;
+      capsrec = capsin.readLine().split(";");
+    } while(capsrec.at(capsheader.indexOf("id")) == regfwrec.at(regfwheader.indexOf("id")));
+
+    QJsonDocument doc(obj);
+
+    QFile defn(QString("/utils/edgetx/vscode/fwdefs/%1.json").arg(regfwrec[regfwheader.indexOf("hwdef")]));
+
+    if (defn.open(QIODevice::WriteOnly | QIODevice::Text)) {
+      defn.write(doc.toJson(QJsonDocument::Indented));
+      defn.close();
+    } else {
+      qWarning("Failed to open file for writing.");
+    }
+  }
+
+  regfws.close();
+  caps.close();
 }

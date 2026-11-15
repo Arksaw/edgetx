@@ -3,17 +3,17 @@
     "This file is always loaded first, then hwdefn, then variations overlaid in basedOn sequence",
     "hidden: true prevents the name being displayed in any ui lists",
     "Some entries are future proofing eg external modules and for parsing consistency",
-    "Some values are used for field initialisation only"
+    "Some values are used for field initialisation or range limits"
   ],
   "hidden": true,
   "name": "Default",
   "supported": true,
   "hwdefn": "",
   "battery": {
-    "comments": "",
-    "min": 60,
-    "max": 80,
-    "warn": 65
+    "comments": "decimals 1",
+    "vmin": 60,
+    "vmax": 80,
+    "vwarn": 65
   },
   "backlight": {
     "comments": "initialisation values",
@@ -31,37 +31,34 @@
     "max": 45,
     "dflt": 25
   },
+  "eepromSize": 0,
   "externalAntenna": false,
+  "flashSize": 0,
   "hardwareAntennaSwitch": false,
   "hats": false,
   "modules": [
     {
       "internal": {
-        "comments": "refer external for complete list",
-        "available": [
-          "elrs",
-          "multi"
+        "comments": [
+          "available modules",
+          "crsf, dsm2, elrs, ghost, lemondsmp, multi, ppm, sbus",
+          "afhds2a, afhds3",
+          "isrm, r9m, r9maccess, r9mlite, r9mliteaccess, r9mliteproaccess, xjt, xjtlite"
         ],
-        "default": "elrs"
+        "available": [
+        ],
+        "default": ""
       }
     },
     {
       "external": {
         "comments": [
-          "available replaces size in modules refactor",
-          "afhds2a, afhds3",
-          "isrm, r9m, r9maccess, r9mlite, r9mliteaccess, r9mliteproaccess, xjt, xjtlite"
+          "size is used to initially populate available",
+          "available will replace size in modules refactor",
+          "refer internal for complete list of available modules"
         ],
         "size": "std",
         "available": [
-          "crsf",
-          "dsm2",
-          "elrs",
-          "ghost",
-          "lemondsmp",
-          "multi",
-          "ppm",
-          "sbus"
         ]
       }
     }

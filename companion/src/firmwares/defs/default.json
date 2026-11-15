@@ -14,7 +14,7 @@
   "supported": true,
   "name": "",
   "board": "",
-  "gitHubAsset": "",
+  "downloadId": "",
   "simulator": "",
   "bluetoothName": "unknown",
   "buildOpts": [
@@ -39,7 +39,6 @@
     "topBarZones": 7,
     "widgetOptions": 50
   },
-  "eepromSize": 0,
   "expos": {
     "comments": "input lines",
     "cnt": 64,
@@ -50,7 +49,6 @@
     "cnt": 9,
     "name": 4
   },
-  "flashSize": 0,
   "globalFuncs": {
     "comments": "",
     "cnt": 32,
@@ -73,27 +71,25 @@
     "cnt": 40,
     "name": 0
   },
-  "luaScripts": {
-    "comments": "mixer scripts",
-    "cnt": 9,
-    "name": 6,
-    "inputs": 6,
-    "outputs": 6
-  },
-  "modelSlots": 60,
   "mixes": {
     "comments": "",
     "cnt": 64,
-    "name": 3
+    "name": 3,
+    "scripts": {
+      "cnt": 9,
+      "name": 6,
+      "inputs": 6,
+      "outputs": 6
+    }
   },
   "modelName": 15,
   "modelImage": {
-    "comments": "b&w defaults",
-    "filters": ".bmp",
-    "name": 8,
-    "image": true,
-    "keepExtn": false
+    "comments": "",
+    "filters": "",
+    "keepExtn": false,
+    "name": 0
   },
+  "modelSlots": 0,
   "outputs": {
     "comments": "name: HAS_LARGE_LCD 6 else 4",
     "cnt": 32,
@@ -113,9 +109,9 @@
   "teleCstmScrns": {
     "comments": "only used for b&w radios",
     "cnt": 4,
-    "lines": 4,
     "bars": 4,
-    "perLine": 3
+    "fieldsPerLine": 3,
+    "lines": 4
   },
   "timers": {
     "comments": "",

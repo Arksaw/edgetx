@@ -44,47 +44,53 @@ class Firmware
 
     struct CurvesDefn {
       Json::sizes_t sizes       {CPN_MAX_CURVES, CURVEDATA_NAME_LEN};
-      int          minPoints   {2};
-      int          maxPoints   {CPN_MAX_POINTS};
-      int          totalPoints {512};
+      int           minPoints   {2};
+      int           maxPoints   {CPN_MAX_POINTS};
+      int           totalPoints {512};
 
       CurvesDefn() = default;
     };
 
     struct CustomScreensDefn {
-      Json::sizes_t sizes {MAX_CUSTOM_SCREENS, 0};
-      int layoutOptions   {MAX_LAYOUT_OPTIONS};
-      int layoutZones     {MAX_LAYOUT_ZONES};
-      int topBarOptions   {MAX_TOPBAR_OPTIONS};
-      int topBarZones     {MAX_TOPBAR_ZONES};
-      int themeOptions    {MAX_THEME_OPTIONS};
-      int widgetOptions   {MAX_WIDGET_OPTIONS};
+      Json::sizes_t screens {MAX_CUSTOM_SCREENS, 0};
+      int layoutOptions     {MAX_LAYOUT_OPTIONS};
+      int layoutZones       {MAX_LAYOUT_ZONES};
+      int topBarOptions     {MAX_TOPBAR_OPTIONS};
+      int topBarZones       {MAX_TOPBAR_ZONES};
+      int themeOptions      {MAX_THEME_OPTIONS};
+      int widgetOptions     {MAX_WIDGET_OPTIONS};
 
       CustomScreensDefn() = default;
     };
 
-    struct LuaScriptsDefn {
-      Json::sizes_t sizes      {CPN_MAX_SCRIPTS, CPN_LEN_SCRIPT_NAME};
-      int          maxInputs  {CPN_MAX_SCRIPT_INPUTS};
-      int          maxOutputs {CPN_MAX_SCRIPT_OUTPUTS};
+    struct MixesScriptsDefn {
+      Json::sizes_t sizes   {CPN_MAX_SCRIPTS, CPN_LEN_SCRIPT_NAME};
+      int           inputs  {CPN_MAX_SCRIPT_INPUTS};
+      int           outputs {CPN_MAX_SCRIPT_OUTPUTS};
 
-      LuaScriptsDefn() = default;
+      MixesScriptsDefn() = default;
+    };
+
+    struct MixesDefn {
+      Json::sizes_t    sizes    {CPN_MAX_MIXERS, MIXDATA_NAME_LEN};
+      MixesScriptsDefn scripts;
+
+      MixesDefn() = default;
     };
 
     struct ModelImageDefn {
-      int         name     {CPN_MAX_BITMAP_LEN};
-      std::string filters  {"*.bmp"};
-      bool        image    {true};  // b&w - true color - false ??
-      bool        keepExtn {false}; // b&w - false color - true
+      int         name     {0};
+      std::string filters  {""};
+      bool        keepExtn {false};
 
       ModelImageDefn() = default;
     };
 
     struct TeleCstmScrnsDefn {
-      Json::sizes_t sizes     {CPN_TELE_CUST_SCRNS, 0};
-      int          maxBars    {CPN_TELE_CUST_SCRNS_BARS};
-      int          maxPerLine {CPN_TELE_CUST_SCRNS_PERLINE};
-      int          maxLines   {CPN_TELE_CUST_SCRNS_LINES};
+      Json::sizes_t screens       {CPN_TELE_CUST_SCRNS, 0};
+      int           bars          {CPN_TELE_CUST_SCRNS_BARS};
+      int           fieldsPerLine {CPN_TELE_CUST_SCRNS_PERLINE};
+      int           lines         {CPN_TELE_CUST_SCRNS_LINES};
 
       TeleCstmScrnsDefn() = default;
     };
@@ -93,7 +99,7 @@ class Firmware
       std::string       id                {"unknown"};
       std::string       name              {"unknown"};
       std::string       boardId           {""};                 // default id
-      std::string       gitHubAsset       {""};                 // default id
+      std::string       downloadId        {""};                 // default id
       std::string       simulator         {""};                 // default id
 
       bool              categories        {false};               // same as labels?
@@ -103,18 +109,15 @@ class Firmware
       std::string       bluetoothName     {"unknown"};
       CurvesDefn        curves;
       CustomScreensDefn customScreens;
-      int               eepromSize        {0};
       Json::sizes_t     expos             {CPN_MAX_EXPOS, EXPODATA_NAME_LEN};
-      int               flashSize         {0};
       Json::sizes_t     flightModes       {CPN_MAX_FLIGHT_MODES, FLIGHTMODE_NAME_LEN}; // rename to operatingModes
       Json::sizes_t     globalFuncs       {CPN_MAX_SPECIAL_FUNCTIONS, 0};
       Json::sizes_t     globalVars        {CPN_MAX_GVARS, GVAR_NAME_LEN};
       Json::sizes_t     inputs            {CPN_MAX_INPUTS, INPUT_NAME_LEN};
       bool              lcdToVideo        {false};
       Json::sizes_t     logicalSwitches   {CPN_MAX_LOGICAL_SWITCHES, 0};
-      LuaScriptsDefn    luaScripts;
       int               keyShortcuts      {MAX_KEYSHORTCUTS};                        // B&W 0
-      Json::sizes_t     mixes             {CPN_MAX_MIXERS, MIXDATA_NAME_LEN};
+      MixesDefn         mixes;
       ModelImageDefn    modelImage;
       int               modelName         {MODEL_NAME_LEN};                          // 15, 12 or 10
       int               modelSlots        {CPN_MAX_MODELS};                          // B&W 60 or colour 0
@@ -135,7 +138,7 @@ class Firmware
     virtual ~ Firmware() {}
 
     Board * getBoard(bool forceLoad = true) const;
-    const QString getDownloadId() const { return m_defn.gitHubAsset.c_str(); }
+    const QString getDownloadId() const { return m_defn.downloadId.c_str(); }
     const QString getId() const { return m_id; }
     const QString getFullName() const;
     const QString getName() const { return m_defn.name.c_str(); }
@@ -172,6 +175,9 @@ class Firmware
 
     static QString getOptionTooltip(const QString & opt);
 
+    // TODO REMOVE BEFORE MERGING
+    static void buildJson();
+
   private:
     QString m_id;
     bool m_supported;   // false - hide from list of available firmwares but available for conversion
@@ -187,7 +193,7 @@ class Firmware
     void loadBuildOptionGroup(QJsonArray::const_iterator & it, OptionsGroup & grp);
     void loadCurves(QJsonObject::const_iterator & it);
     void loadCustomScreens(QJsonObject::const_iterator & it);
-    void loadLuaScripts(QJsonObject::const_iterator & it);
+    void loadMixes(QJsonObject::const_iterator & it);
     void loadModelImage(QJsonObject::const_iterator & it);
     void loadTeleCstmScrns(QJsonObject::const_iterator & it);
     bool postLoad();
