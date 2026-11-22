@@ -50,6 +50,10 @@ static uint8_t _crsf_len = 0;
 static const etx_serial_driver_t* _crsf_drv = nullptr;
 static void* _crsf_ctx = nullptr;
 
+// Set once this port has fed the trainer channels, so that stopping it only
+// drops trainer input it actually provided (the module path shares the mode)
+static bool _crsf_fed = false;
+
 static inline bool _validAddr(uint8_t b)
 {
   return b == RADIO_ADDRESS || b == UART_SYNC;
@@ -86,6 +90,7 @@ void crsfTrainerReceiveData(uint8_t* data, uint32_t len)
   // The model is not asking for CRSF trainer input: stay out of the way.
   if (g_model.trainerData.mode != TRAINER_MODE_CRSF) {
     _crsf_len = 0;
+    _crsf_fed = false;
     return;
   }
 
@@ -116,6 +121,7 @@ void crsfTrainerReceiveData(uint8_t* data, uint32_t len)
         _crsf_buf[1] >= CRSF_CHANNELS_FRAME_LEN) {
       // Fills trainerInput[] and resets the trainer validity timer
       crossfireProcessChannelsFrame(_crsf_buf);
+      _crsf_fed = true;
     }
 
     // Consume the whole frame either way, as _processFrames() does for the
@@ -133,6 +139,7 @@ void crsfTrainerStart(void* ctx, const etx_serial_driver_t* drv)
   if (!drv || !drv->setReceiveCb) return;
 
   _crsf_len = 0;
+  _crsf_fed = false;
   _crsf_drv = drv;
   _crsf_ctx = ctx;
 
@@ -151,6 +158,14 @@ void crsfTrainerStop()
   _crsf_drv = nullptr;
   _crsf_ctx = nullptr;
   _crsf_len = 0;
+
+  // The host is gone (USB unplugged, or the port changed mode): hand the
+  // sticks back now instead of mixing its last frame until the trainer
+  // validity timer runs out
+  if (_crsf_fed && g_model.trainerData.mode == TRAINER_MODE_CRSF) {
+    trainerSetTimer(0);
+  }
+  _crsf_fed = false;
 }
 
 void crsfTrainerReleaseCtx(void* ctx)
