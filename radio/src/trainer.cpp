@@ -21,6 +21,8 @@
 
 #include "hal/trainer_driver.h"
 
+#include <atomic>
+
 #include "edgetx.h"
 #include "serial.h"
 
@@ -28,7 +30,10 @@
 #define TRAINER_IN_VALID_TIMEOUT 100 // 1s
 
 int16_t trainerInput[MAX_TRAINER_CHANNELS];
-uint8_t trainerInputValidityTimer;
+
+// Reset from trainer input ISRs (PPM, SBUS, USB-VCP...) while being
+// decremented from the 10ms timer task
+static std::atomic<uint8_t> trainerInputValidityTimer;
 uint8_t currentTrainerMode = 0xff;
 
 void (*_on_change_cb)(uint8_t, uint8_t) = nullptr;
@@ -43,7 +48,11 @@ void trainerResetTimer()
 
 void trainerDecTimer()
 {
-  if (trainerInputValidityTimer) trainerInputValidityTimer--;
+  // Only store the decremented value if no reset happened in between,
+  // otherwise a frame arriving just before the timeout would be lost
+  uint8_t t = trainerInputValidityTimer.load();
+  while (t && !trainerInputValidityTimer.compare_exchange_weak(t, t - 1)) {
+  }
 }
 
 void trainerSetTimer(uint16_t t)

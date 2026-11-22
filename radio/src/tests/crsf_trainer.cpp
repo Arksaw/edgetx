@@ -336,6 +336,29 @@ TEST_F(CrsfTrainerTest, partialFrameIsDroppedOnStop)
   EXPECT_FALSE(isTrainerValid());
 }
 
+// Unplugging USB stops the port: the sticks must return to the pilot at once,
+// not after the trainer validity timeout.
+TEST_F(CrsfTrainerTest, inputInvalidatedOnStop)
+{
+  feed(buildChannelsFrame());
+  ASSERT_TRUE(isTrainerValid());
+
+  crsfTrainerStop();
+
+  EXPECT_FALSE(isTrainerValid());
+}
+
+// Stopping the port must not drop trainer input it did not provide, such as
+// CRSF channels coming from a module.
+TEST_F(CrsfTrainerTest, otherSourceKeptOnStop)
+{
+  trainerResetTimer();
+
+  crsfTrainerStop();
+
+  EXPECT_TRUE(isTrainerValid());
+}
+
 namespace {
 void (*stubRxCb)(uint8_t*, uint32_t) = nullptr;
 void stubSetReceiveCb(void*, void (*cb)(uint8_t*, uint32_t)) { stubRxCb = cb; }
